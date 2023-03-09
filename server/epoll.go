@@ -30,6 +30,7 @@ func main() {
 			log.Println("EpollWait", err)
 			continue
 		}
+		log.Println("EpollWait", n, err)
 		for i := 0; i < n; i++ {
 			if evs[i].Fd == int32(fd) {
 				log.Println("accept")
