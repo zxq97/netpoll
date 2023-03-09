@@ -3,15 +3,14 @@ package main
 import (
 	"log"
 	"syscall"
-	"time"
 
 	"github.com/zxq97/netpoll/internal/socket"
 )
 
 func read(fd int) error {
-	buf := make([]byte, 4096)
+	buf := make([]byte, 1024)
 	n, err := syscall.Read(fd, buf)
-	log.Println("read", buf[:n])
+	log.Println("read", string(buf[:n]))
 	return err
 }
 
@@ -88,6 +87,5 @@ func main() {
 				closeFD(epfd, int(evs[i].Fd))
 			}
 		}
-		time.Sleep(time.Second * 3)
 	}
 }
