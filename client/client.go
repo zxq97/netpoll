@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"sync"
+	"time"
+
+	"github.com/cloudwego/netpoll"
 )
 
 func main() {
@@ -12,7 +14,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			conn, err := net.Dial("tcp", ":8000")
+			conn, err := netpoll.DialConnection("tcp", ":8000", time.Millisecond*100)
 			if err != nil {
 				panic(err)
 			}
