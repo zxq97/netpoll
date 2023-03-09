@@ -1,9 +1,13 @@
 package main
 
-import "net"
+import (
+	"time"
+
+	"github.com/cloudwego/netpoll"
+)
 
 func main() {
-	conn, err := net.Dial("tcp", ":8000")
+	conn, err := netpoll.DialConnection("tcp", ":8000", time.Millisecond*100)
 	if err != nil {
 		panic(err)
 	}
