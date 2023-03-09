@@ -52,6 +52,9 @@ func main() {
 					continue
 				}
 				log.Println("read", string(buf[:l]))
+				if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_MOD, int(evs[i].Fd), &syscall.EpollEvent{Fd: evs[i].Fd, Events: syscall.EPOLLERR | syscall.EPOLLHUP | syscall.EPOLLOUT}); err != nil {
+					log.Println("EpollCtl", evs[i].Fd, err)
+				}
 			} else if evs[i].Events&syscall.EPOLLOUT != 0 {
 				log.Println("write", evs[i].Fd, evs[i].Events)
 			} else if evs[i].Events&syscall.EPOLLHUP != 0 {
