@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"syscall"
+	"time"
 
 	"github.com/zxq97/netpoll/internal/socket"
 )
@@ -61,5 +62,6 @@ func main() {
 				}
 			}
 		}
+		time.Sleep(time.Second * 5)
 	}
 }
