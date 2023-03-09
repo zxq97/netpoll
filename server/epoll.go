@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ev := &syscall.EpollEvent{Fd: int32(fd), Events: syscall.EPOLLIN | syscall.EPOLLHUP | syscall.EPOLLERR}
+	ev := &syscall.EpollEvent{Fd: int32(fd), Events: syscall.EPOLLIN | syscall.EPOLLHUP | syscall.EPOLLERR | syscall.EPOLLOUT}
 	if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, fd, ev); err != nil {
 		panic(err)
 	}
