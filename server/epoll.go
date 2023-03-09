@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"syscall"
 	"time"
@@ -8,13 +9,60 @@ import (
 	"github.com/zxq97/netpoll/internal/socket"
 )
 
+var (
+	ch chan *Conn
+)
+
+type Conn struct {
+	fd  int
+	buf []byte
+}
+
+func init() {
+	ch = make(chan *Conn, 1024)
+}
+
+func read(fd int) error {
+	buf := make([]byte, 4096)
+	n, err := syscall.Read(fd, buf)
+	if err != nil {
+		return err
+	}
+	ch <- &Conn{fd: fd, buf: buf[:n]}
+	return nil
+}
+
+func handle(ctx context.Context) {
+	for {
+		select {
+		case conn := <-ch:
+			if n, err := syscall.Write(conn.fd, conn.buf); err != nil {
+				log.Println("Write", conn.fd, err)
+			} else {
+				log.Println("handle", conn.fd, string(conn.buf), n)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func closeFD(epfd, fd int) {
+	if err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_DEL, fd, &syscall.EpollEvent{Fd: int32(fd), Events: syscall.EPOLLOUT}); err != nil {
+		log.Println("EpollCtl", fd, err)
+	}
+	if err := syscall.Close(fd); err != nil {
+		log.Println("Close", fd, err)
+	}
+}
+
 func main() {
 	fd, err := socket.ListenTCP(8000)
 	if err != nil {
 		panic(err)
 	}
 
-	epfd, err := syscall.EpollCreate1(0)
+	epfd, err := syscall.EpollCreate(4096)
 	if err != nil {
 		panic(err)
 	}
@@ -23,6 +71,9 @@ func main() {
 		panic(err)
 	}
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	go handle(ctx)
 	for {
 		evs := make([]syscall.EpollEvent, 1024)
 		n, err := syscall.EpollWait(epfd, evs, 0)
@@ -45,27 +96,22 @@ func main() {
 					continue
 				}
 			} else if evs[i].Events&syscall.EPOLLIN != 0 {
-				buf := make([]byte, 4096)
-				l, err := syscall.Read(int(evs[i].Fd), buf)
-				if err != nil {
-					log.Println("Read", evs[i].Fd, err)
+				if err = read(int(evs[i].Fd)); err != nil {
+					log.Println("readhandle", evs[i].Fd, err)
+					closeFD(epfd, int(evs[i].Fd))
 					continue
 				}
-				log.Println("read", string(buf[:l]))
 				if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_MOD, int(evs[i].Fd), &syscall.EpollEvent{Fd: evs[i].Fd, Events: syscall.EPOLLERR | syscall.EPOLLHUP | syscall.EPOLLOUT}); err != nil {
 					log.Println("EpollCtl", evs[i].Fd, err)
 				}
 			} else if evs[i].Events&syscall.EPOLLOUT != 0 {
-				log.Println("write", evs[i].Fd, evs[i].Events)
+				if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_MOD, int(evs[i].Fd), &syscall.EpollEvent{Fd: evs[i].Fd, Events: syscall.EPOLLIN | syscall.EPOLLERR | syscall.EPOLLHUP}); err != nil {
+					log.Println("EpollCtl", evs[i].Fd, err)
+				}
 			} else if evs[i].Events&syscall.EPOLLHUP != 0 {
-				if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_DEL, int(evs[i].Fd), &syscall.EpollEvent{Fd: evs[i].Fd, Events: syscall.EPOLLOUT}); err != nil {
-					log.Println("EpollCtl EPOLL_CTL_DEL", evs[i].Fd, err)
-				}
-				if err = syscall.Close(int(evs[i].Fd)); err != nil {
-					log.Println("Close", evs[i].Fd, err)
-				}
+				closeFD(epfd, int(evs[i].Fd))
 			}
 		}
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 3)
 	}
 }
