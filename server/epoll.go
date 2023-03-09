@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/zxq97/netpoll/internal/socket"
 )
@@ -49,6 +51,11 @@ func main() {
 		n, err := syscall.EpollWait(epfd, evs, 0)
 		if err != nil {
 			log.Println("EpollWait", err)
+			continue
+		}
+		if n == 0 {
+			runtime.Gosched()
+			time.Sleep(time.Second)
 			continue
 		}
 		log.Println("EpollWait", n, err)
