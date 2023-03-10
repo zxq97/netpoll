@@ -23,8 +23,13 @@ func ListenTCP(port int) (int, error) {
 func Accept(fd int) (int, error) {
 	nfd, _, err := syscall.Accept(fd)
 	if err != nil {
+		Close(nfd)
 		return 0, err
 	}
 	err = syscall.SetNonblock(nfd, true)
 	return nfd, err
+}
+
+func Close(fd int) error {
+	return syscall.Close(fd)
 }
